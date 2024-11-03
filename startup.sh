@@ -4,7 +4,7 @@ BASE_PATH='/usr/local/src/jenkins/workspace/tjxt-dev-build'
 PROJECT_NAME=""
 PROJECT_PATH=''
 CONTAINER_NAME=""
-JAVA_OPTS="-Xms300m -Xmx300m"
+JAVA_OPTS="-Xms1024m -Xmx1024m"
 PORT=8080
 DEBUG_PORT=0
 while getopts "c:n:d:p:o:a:" opt; do
