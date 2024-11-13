@@ -8,7 +8,6 @@ import com.tianji.api.dto.course.CourseFullInfoDTO;
 import com.tianji.api.dto.course.CourseSimpleInfoDTO;
 import com.tianji.common.domain.dto.PageDTO;
 import com.tianji.common.domain.query.PageQuery;
-import com.tianji.common.exceptions.BadRequestException;
 import com.tianji.common.exceptions.BizIllegalException;
 import com.tianji.common.utils.BeanUtils;
 import com.tianji.common.utils.CollUtils;
@@ -144,5 +143,48 @@ public class LearningLessonServiceImpl extends ServiceImpl<LearningLessonMapper,
 
         //5. 封装到vo 返回
         return learningLessonVO;
+    }
+
+    @Override
+    public void removeUserLessons(Long userId, List<Long> courseIds) {
+
+        this.lambdaUpdate()
+                .eq(LearningLesson::getUserId, userId)
+                .in(LearningLesson::getCourseId, courseIds)
+                .remove();
+    }
+
+    @Override
+    public Long isLessonValid(Long courseId) {
+        Long userId = UserContext.getUser();
+         return this.lambdaQuery().eq(LearningLesson::getCourseId, courseId)
+                .eq(LearningLesson::getUserId,userId)
+                .ne(LearningLesson::getStatus, LessonStatus.EXPIRED)
+                .last("limit 1")
+                .oneOpt()
+                .map(LearningLesson::getId)
+                .orElse(null);
+    }
+
+    @Override
+    public LearningLessonVO queryLessonStatus(Long courseId) {
+        Long userId = UserContext.getUser();
+        LearningLesson learningLesson = this.lambdaQuery().eq(LearningLesson::getUserId, userId)
+                .eq(LearningLesson::getCourseId, courseId)
+                .last("limit 1")
+                .one();
+        if(learningLesson == null ){
+            return null;
+        }
+        return BeanUtils.copyBean(learningLesson, LearningLessonVO.class);
+        }
+
+    @Override
+    public Integer countNumByCourse(Long courseId) {
+        if(courseId == null){
+            throw new BizIllegalException("课程id不能为空");
+        }
+        return this.lambdaQuery().eq(LearningLesson::getCourseId, courseId)
+                .count();
     }
 }

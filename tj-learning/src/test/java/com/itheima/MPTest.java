@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.OrderItem;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tianji.common.domain.query.PageQuery;
+import com.tianji.common.utils.CollUtils;
 import com.tianji.learning.LearningApplication;
 import com.tianji.learning.domain.po.LearningLesson;
 import com.tianji.learning.service.ILearningLessonService;
@@ -86,6 +87,12 @@ public class MPTest {
         }
 
 
+    }
+
+    @Test
+    public void test3(){
+
+        learningLessonService.removeUserLessons(2L, CollUtils.singletonList(2L));
     }
 
 }

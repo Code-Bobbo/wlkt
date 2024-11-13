@@ -9,6 +9,7 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 import org.springframework.web.bind.annotation.RestController;
@@ -39,5 +40,24 @@ public class LearningLessonController {
     public LearningLessonVO queryCurrentLesson() {
         return lessonService.queryCurrentLesson();
     }
+
+
+    @ApiOperation("检查课程是否有效")
+    @GetMapping("{courseId}/valid")
+    public Long isLessonValid(@PathVariable("courseId") Long courseId){
+        return lessonService.isLessonValid(courseId);
+    }
+
+    @ApiOperation("查询用户课表中指定课程状态")
+    @GetMapping("{courseId}")
+    public LearningLessonVO  queryLessonStatus(@PathVariable("courseId") Long courseId){
+        return lessonService.queryLessonStatus(courseId);
+    }
+    @ApiOperation("统计课程学习人数")
+    @GetMapping("/lessons/{courseId}/count")
+    public Integer countLearningLessonByCourse(@PathVariable("courseId") Long courseId){
+        return lessonService.countNumByCourse(courseId);
+    }
+
 
 }

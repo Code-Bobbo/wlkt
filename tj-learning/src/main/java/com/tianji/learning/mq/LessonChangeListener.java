@@ -35,4 +35,21 @@ public class LessonChangeListener {
         //2. 调用service,保存课程到课程表
         lessonService.addUserLessons(dto.getUserId(),dto.getCourseIds());
     }
+
+    @RabbitListener(bindings = @QueueBinding(
+            value = @Queue(value = "learning.lesson.refund.queue", durable = "true"),
+            exchange = @Exchange(name = MqConstants.Exchange.ORDER_EXCHANGE, type = ExchangeTypes.TOPIC),
+            key = MqConstants.Key.ORDER_REFUND_KEY
+    ))
+    public void onRefundMsg(OrderBasicDTO dto){
+        log.info("LessonChangeListener接收到了退款消息：{}",dto);
+        //1. 校验
+        if(dto.getOrderId() == null || dto.getUserId() == null || CollUtils.isEmpty(dto.getCourseIds())){
+            //如果校验不通过，不要抛异常。，直接return 不管就行。
+            // 如果抛异常，会重试，重试次数达到上限，还是抛异常，就直接丢弃消息。
+            return;
+        }
+        lessonService.removeUserLessons(dto.getUserId(),dto.getCourseIds());
+    }
+
 }
