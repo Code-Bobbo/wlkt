@@ -1,12 +1,16 @@
 package com.itheima;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.OrderItem;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.tianji.common.domain.query.PageQuery;
 import com.tianji.common.utils.CollUtils;
 import com.tianji.learning.LearningApplication;
 import com.tianji.learning.domain.po.LearningLesson;
+import com.tianji.learning.domain.vo.LearningLessonVO;
+import com.tianji.learning.enums.LessonStatus;
+import com.tianji.learning.enums.PlanStatus;
 import com.tianji.learning.service.ILearningLessonService;
 import lombok.val;
 import org.junit.jupiter.api.Test;
@@ -15,6 +19,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @SpringBootTest(classes = LearningApplication.class) //只要测试类所在的包和引导类所在的包名字不一样，就得加这个属性
 public class MPTest {
@@ -93,6 +98,20 @@ public class MPTest {
     public void test3(){
 
         learningLessonService.removeUserLessons(2L, CollUtils.singletonList(2L));
+    }
+    @Test
+    public void test4(){
+        //查询本周学习计划总数据
+        QueryWrapper<LearningLesson> wrapper = new QueryWrapper<>();
+        wrapper.select("sum(week_freq) ");//查询哪些列 也可以使用聚合函数，类似于miniob的select部分
+        wrapper.eq("user_id", 2);
+        wrapper.in("status", LessonStatus.NOT_BEGIN,LessonStatus.LEARNING);
+        wrapper.eq("plan_status", PlanStatus.PLAN_RUNNING);
+//        Map<String, Object> map = this.getMap(wrapper);
+//        Map<String, Object> map = learningLessonService.getMap(wrapper);
+        Object obj = learningLessonService.getObj(wrapper,Object::toString);
+        System.out.println(obj);
+
     }
 
 }
