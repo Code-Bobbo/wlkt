@@ -257,7 +257,7 @@ public class LearningLessonServiceImpl extends ServiceImpl<LearningLessonMapper,
             learningPlanPageVO.setTotal(0L);
             learningPlanPageVO.setPages(0L);
             learningPlanPageVO.setList(CollUtils.emptyList());
-            return vo;
+            return learningPlanPageVO;
 
         }
         Set<Long> courseIds = page.getRecords().stream().map(LearningLesson::getCourseId).collect(Collectors.toSet());
@@ -279,6 +279,7 @@ public class LearningLessonServiceImpl extends ServiceImpl<LearningLessonMapper,
             .eq("finished", true)
             .between("finish_time", DateUtils.getWeekBeginTime(LocalDate.now()), DateUtils.getWeekEndTime(LocalDate.now()))
             .groupBy("lesson_id"));
+            Map<Long, Long> courseweekFinishedNum = learningRecords.stream().collect(Collectors.toMap(LearningRecord::getLessonId, LearningRecord::getUserId));
         //6。 封装vo 返回
         LearningPlanPageVO learningPlanPageVO = new LearningPlanPageVO();
         learningPlanPageVO.setWeekTotalPlan(i);
@@ -304,6 +305,6 @@ public class LearningLessonServiceImpl extends ServiceImpl<LearningLessonMapper,
         learningPlanPageVO.setList(learningPlanVOS);
         learningPlanPageVO.setTotal(page.getTotal());
         learningPlanPageVO.setPages(page.getPages());
-
+        return learningPlanPageVO;
     }
 }
