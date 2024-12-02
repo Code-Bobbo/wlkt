@@ -218,7 +218,7 @@ public class LearningLessonServiceImpl extends ServiceImpl<LearningLessonMapper,
 //                .set(LearningLesson::getWeekFreq,freq)
 //                .update();
     }
-
+ 
     @Override
     public LearningPlanPageVO queryMyPlans(PageQuery query) {
 
@@ -278,7 +278,8 @@ public class LearningLessonServiceImpl extends ServiceImpl<LearningLessonMapper,
             List<LearningRecord> learningRecords = recordMapper.selectList(Wrappers.<LearningRecord>query().eq("user_id", userId)
             .eq("finished", true)
             .between("finish_time", DateUtils.getWeekBeginTime(LocalDate.now()), DateUtils.getWeekEndTime(LocalDate.now()))
-            .groupBy("lesson_id"));
+            .groupBy("lesson_id")
+                    .select("lesson_id","count(*) as userId"));
             Map<Long, Long> courseweekFinishedNum = learningRecords.stream().collect(Collectors.toMap(LearningRecord::getLessonId, LearningRecord::getUserId));
         //6。 封装vo 返回
         LearningPlanPageVO learningPlanPageVO = new LearningPlanPageVO();
