@@ -17,6 +17,7 @@ import com.tianji.learning.mapper.LearningRecordMapper;
 import com.tianji.learning.service.ILearningLessonService;
 import com.tianji.learning.service.ILearningRecordService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.tianji.learning.utils.LearningRecordDelayTaskHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -36,6 +37,7 @@ public class LearningRecordServiceImpl extends ServiceImpl<LearningRecordMapper,
 
     final ILearningLessonService lessonService;
     final CourseClient courseClient;
+    final LearningRecordDelayTaskHandler taskHandler;
     @Override
     public LearningLessonDTO queryLearningRecordByCourse(Long courseId) {
         //1 获取当前用户
@@ -182,6 +184,10 @@ public class LearningRecordServiceImpl extends ServiceImpl<LearningRecordMapper,
             //执行考试操作
             isFinished = handleExamRecord(userId, dto);
         }
+        //如果不是第一次学完，直接return 终止方法执行，不走下面处理课程数据调用db的方法
+        if(!isFinished){
+            return;
+        }
 
         //处理课表数据
         handleLessonData(dto, isFinished);
@@ -253,6 +259,12 @@ public class LearningRecordServiceImpl extends ServiceImpl<LearningRecordMapper,
         // 4.存在，则更新
         // 4.1.判断是否是第一次完成
         boolean finished = !old.getFinished() && dto.getMoment() * 2 >= dto.getDuration();
+        if(!finished){
+            LearningRecord record = new LearningRecord();
+            record.setId(old.getId()).setFinished(old.getFinished()).setMoment(dto.getMoment()).setLessonId(dto.getLessonId()).setSectionId(dto.getSectionId());
+            taskHandler.addLearningRecordTask(record);
+            return false; //代表本小节没有学完
+        }
         // 4.2.更新数据
         boolean success = lambdaUpdate()
                 .set(LearningRecord::getMoment, dto.getMoment())
@@ -263,14 +275,29 @@ public class LearningRecordServiceImpl extends ServiceImpl<LearningRecordMapper,
         if (!success) {
             throw new DbException("更新学习记录失败！");
         }
+        taskHandler.cleanRecordCache(dto.getLessonId(), dto.getSectionId());
         return finished;
     }
 
     private LearningRecord queryOldRecord(Long lessonId, Long sectionId) {
-        return lambdaQuery()
+        //1. 查询缓存 如果命中 直接返回，如果未命中 查询db
+        LearningRecord record = taskHandler.readRecordCache(lessonId, sectionId);
+        if (record != null) {
+            return record;
+        }
+        //2. 查询db
+        record =    lambdaQuery()
                 .eq(LearningRecord::getLessonId, lessonId)
                 .eq(LearningRecord::getSectionId, sectionId)
                 .one();
+        if(record ==null){
+            return null; //走被调用方法的 新建学习记录的分支
+        }
+        //放入缓存 如果上面不判断段是否为null的话，会导致下面的方法空指针异常
+        taskHandler.writeRecordCache(record);
+
+        return record;
+
     }
 
 }

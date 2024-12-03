@@ -11,6 +11,7 @@ import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -21,6 +22,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.DelayQueue;
 
 @Slf4j
+@Component
 @RequiredArgsConstructor
 public class LearningRecordDelayTaskHandler {
 
@@ -32,6 +34,7 @@ public class LearningRecordDelayTaskHandler {
     private static volatile boolean begin = true;
     @PostConstruct //项目启动后，当前类实例化之后，属性注入之后，方法就会运行 一般用来做初始化工作
     public void init(){
+        log.info("开启学习记录处理的延迟任务");
         CompletableFuture.runAsync(this::handleDelayTask); //开启新线程 执行该方法
     }
     @PreDestroy //当前类实例 销毁之前 该方法会执行
@@ -44,10 +47,11 @@ public class LearningRecordDelayTaskHandler {
             try {
                 // 1.尝试获取任务
                 DelayTask<RecordTaskData> task = queue.take(); //从延迟阻塞队列中拉取任务，方法是阻塞方法
-                log.debug("获取到要处理的播放记录任务");
+
                 RecordTaskData data = task.getData();
                 // 2.读取Redis缓存
                 LearningRecord record = readRecordCache(data.getLessonId(), data.getSectionId());
+                log.debug("获取到要处理的播放记录任务 任务数据：{} ，缓存数据{}",data,record);
                 if (record == null) {
                     continue;
                 }
