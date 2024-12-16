@@ -2,6 +2,7 @@ package com.tianji.learning.service.impl;
 
 import com.baomidou.mybatisplus.core.metadata.TableFieldInfo;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tianji.api.client.search.SearchClient;
 import com.tianji.api.client.user.UserClient;
 import com.tianji.api.dto.user.UserDTO;
 import com.tianji.common.domain.dto.PageDTO;
@@ -13,7 +14,10 @@ import com.tianji.common.utils.UserContext;
 import com.tianji.learning.domain.dto.QuestionFormDTO;
 import com.tianji.learning.domain.po.InteractionQuestion;
 import com.tianji.learning.domain.po.InteractionReply;
+import com.tianji.learning.domain.query.QuestionAdminPageQuery;
+import com.tianji.learning.domain.query.QuestionPageAdminQuery;
 import com.tianji.learning.domain.query.QuestionPageQuery;
+import com.tianji.learning.domain.vo.QuestionAdminVO;
 import com.tianji.learning.domain.vo.QuestionVO;
 import com.tianji.learning.mapper.InteractionQuestionMapper;
 import com.tianji.learning.service.IInteractionQuestionService;
@@ -42,6 +46,7 @@ public class InteractionQuestionServiceImpl extends ServiceImpl<InteractionQuest
 
     private final UserClient userClient;
     private final IInteractionReplyService replyService;
+    private final SearchClient searchClient;
 
     @Override
     public void save(QuestionFormDTO dto) {
@@ -167,4 +172,56 @@ public class InteractionQuestionServiceImpl extends ServiceImpl<InteractionQuest
         }
         return PageDTO.of(page, voList);
     }
+
+    @Override
+    public QuestionVO getQuestionById(Long id) {
+        //1. 参数校验
+        if (id == null){
+            throw new BadRequestException("id不能为null");
+        }
+        InteractionQuestion question = this.getById(id);
+        if (question == null){
+            return null;
+        }
+        if (question.getHidden()){
+            return null;
+        }
+        QuestionVO vo = BeanUtils.copyBean(question, QuestionVO.class);
+        if (! question.getAnonymity()){
+            UserDTO userDTO = userClient.queryUserById(question.getUserId());
+            if (userDTO != null) {
+                vo.setUserName(userDTO.getName());
+                vo.setUserIcon(userDTO.getIcon());
+            }
+        }
+        return vo;
+
+    }
+
+    @Override
+    public PageDTO<QuestionAdminVO> queryQuestionAdminPage(QuestionAdminPageQuery query) {
+        //参数中有课程名称，而数据库表中没有，如果传了，需要从es中获取名称对应的课程id，在search微服务中进行查询，本质上es就是在一个方法内部，创建链接 查询 返回结果集合
+        String courseName = query.getCourseName();
+        List<Long> courseIds = null;
+        if(StringUtils.isNotEmpty(courseName)){
+            //通过figin 远程调用搜索服务，从es中搜索关键字课程名称，返回课程id
+            List<Long> courseIds = searchClient.queryCoursesIdByName(courseName);
+            //如果在es 中查询不到 则返回空
+            if (CollUtils.isEmpty(courseIds)){
+            return PageDTO.empty(0L,0L);}
+
+        }
+        Page<InteractionQuestion> questionPage = this.lambdaQuery()
+                .in(InteractionQuestion::getCourseId, courseIds)
+                .eq(query.getStatus(), InteractionQuestion::getStatus, query.getStatus())
+                .between(query.getBeginTime() != null && query.getEndTime() != null,
+                        InteractionQuestion::getCreateTime, query.getBeginTime(), query.getEndTime())
+
+                .page(query.toMpPageDefaultSortByCreateTimeDesc());
+        List<InteractionQuestion> records = questionPage.getRecords();
+        if (CollUtils.isEmpty(records)){
+            return PageDTO.empty(0L,0L);
+        }
+    }
+
 }
