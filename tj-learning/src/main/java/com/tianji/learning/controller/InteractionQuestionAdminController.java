@@ -25,7 +25,7 @@ import org.springframework.web.bind.annotation.*;
 public class InteractionQuestionAdminController {
     private final IInteractionQuestionService questionService;
     @ApiOperation("分页查询问题列表-管理端")
-    @@GetMapping("page")
+    @GetMapping("page")
     public PageDTO<QuestionAdminVO> queryQuestionAdminPage(QuestionAdminPageQuery query){
         return questionService.queryQuestionAdminPage(query);
     }

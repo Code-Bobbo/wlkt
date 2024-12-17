@@ -2,8 +2,13 @@ package com.tianji.learning.service.impl;
 
 import com.baomidou.mybatisplus.core.metadata.TableFieldInfo;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.tianji.api.cache.CategoryCache;
+import com.tianji.api.client.course.CatalogueClient;
+import com.tianji.api.client.course.CourseClient;
 import com.tianji.api.client.search.SearchClient;
 import com.tianji.api.client.user.UserClient;
+import com.tianji.api.dto.course.CataSimpleInfoDTO;
+import com.tianji.api.dto.course.CourseSimpleInfoDTO;
 import com.tianji.api.dto.user.UserDTO;
 import com.tianji.common.domain.dto.PageDTO;
 import com.tianji.common.exceptions.BadRequestException;
@@ -15,7 +20,6 @@ import com.tianji.learning.domain.dto.QuestionFormDTO;
 import com.tianji.learning.domain.po.InteractionQuestion;
 import com.tianji.learning.domain.po.InteractionReply;
 import com.tianji.learning.domain.query.QuestionAdminPageQuery;
-import com.tianji.learning.domain.query.QuestionPageAdminQuery;
 import com.tianji.learning.domain.query.QuestionPageQuery;
 import com.tianji.learning.domain.vo.QuestionAdminVO;
 import com.tianji.learning.domain.vo.QuestionVO;
@@ -47,6 +51,9 @@ public class InteractionQuestionServiceImpl extends ServiceImpl<InteractionQuest
     private final UserClient userClient;
     private final IInteractionReplyService replyService;
     private final SearchClient searchClient;
+    private final CourseClient courseClient;
+    private final CatalogueClient catalogueClient;
+    private final CategoryCache categoryCache;
 
     @Override
     public void save(QuestionFormDTO dto) {
@@ -205,23 +212,97 @@ public class InteractionQuestionServiceImpl extends ServiceImpl<InteractionQuest
         List<Long> courseIds = null;
         if(StringUtils.isNotEmpty(courseName)){
             //通过figin 远程调用搜索服务，从es中搜索关键字课程名称，返回课程id
-            List<Long> courseIds = searchClient.queryCoursesIdByName(courseName);
+            courseIds = searchClient.queryCoursesIdByName(courseName);
             //如果在es 中查询不到 则返回空
             if (CollUtils.isEmpty(courseIds)){
             return PageDTO.empty(0L,0L);}
 
         }
         Page<InteractionQuestion> questionPage = this.lambdaQuery()
-                .in(InteractionQuestion::getCourseId, courseIds)
-                .eq(query.getStatus(), InteractionQuestion::getStatus, query.getStatus())
+                .in(CollUtils.isNotEmpty(courseIds),InteractionQuestion::getCourseId, courseIds)
+                .eq(query.getStatus() !=null , InteractionQuestion::getStatus, query.getStatus())
                 .between(query.getBeginTime() != null && query.getEndTime() != null,
                         InteractionQuestion::getCreateTime, query.getBeginTime(), query.getEndTime())
 
                 .page(query.toMpPageDefaultSortByCreateTimeDesc());
         List<InteractionQuestion> records = questionPage.getRecords();
-        if (CollUtils.isEmpty(records)){
-            return PageDTO.empty(0L,0L);
+        if (CollUtils.isEmpty(records)) {
+            return PageDTO.empty(0L, 0L);
         }
+        Set<Long>  userIds = new HashSet<>();//用户id集合
+        Set<Long>  cIds = new HashSet<>();//课程id集合
+        Set<Long>  chapterAndSectionIds = new HashSet<>();//章和节的id集合
+        for (InteractionQuestion record : records) {
+            userIds.add(record.getUserId());
+            cIds.add(record.getCourseId());
+            chapterAndSectionIds.add(record.getChapterId());//章id
+            chapterAndSectionIds.add(record.getSectionId());//节id
+        }
+
+
+        //远程调用用户服务，获取用户信息
+        List<UserDTO> userDTOS = userClient.queryUserByIds(userIds);
+        if(CollUtils.isEmpty(userDTOS)){
+            throw new BadRequestException("用户不存在");
+        }
+        Map<Long, UserDTO> userMap = userDTOS.stream()
+                .collect(Collectors.toMap(UserDTO::getId, u -> u));
+
+
+        //远程调用课程信息，获得课程信息
+        List<CourseSimpleInfoDTO> clientSimpleInfoList = courseClient.getSimpleInfoList(cIds);
+        if(CollUtils.isEmpty(clientSimpleInfoList)){
+            throw new BadRequestException("课程不存在");
+        }
+        Map<Long, CourseSimpleInfoDTO> courseMap = clientSimpleInfoList.stream()
+                .collect(Collectors.toMap(CourseSimpleInfoDTO::getId, c -> c));
+
+
+
+        //远程调用课程信息，获取章节信息
+        List<CataSimpleInfoDTO> chapterAndSectionTOS = catalogueClient.batchQueryCatalogue(chapterAndSectionIds);
+        if(CollUtils.isEmpty(chapterAndSectionTOS)){
+            throw new BadRequestException("章节不存在");
+        }
+        //把value 的值直接 设置为里面的字段，可以避免在封装vo字段的时候 进行null的判断
+        Map<Long, String> cataMap = chapterAndSectionTOS.stream()
+                .collect(Collectors.toMap(CataSimpleInfoDTO::getId, CataSimpleInfoDTO::getName));
+        //获取分类信息
+        //本质上课程数据库表中有三级各自的分类id，拿到id之后去分类表根据id查找分类名称
+        //但是分类信息一般不会变动，针对这种情况，可以直接去缓存中查询，这里不使redis，使用caffeine
+        //获取课程的一二三类的id ，封装到集合
+
+
+        //封装vo返回
+        List<QuestionAdminVO>   voList = new ArrayList<>();
+        for (InteractionQuestion record : records) {
+            QuestionAdminVO adminVO = BeanUtils.copyBean(record, QuestionAdminVO.class);
+            UserDTO userDTO = userMap.get(record.getUserId());
+            if (userDTO != null){
+                adminVO.setUserName(userDTO.getName());
+            }
+            CourseSimpleInfoDTO simpleInfoDTO = courseMap.get(record.getCourseId());
+            if (simpleInfoDTO != null){
+                adminVO.setCourseName(simpleInfoDTO.getName());
+                List<Long> categoryIds = simpleInfoDTO.getCategoryIds();
+                String categoryNames = categoryCache.getCategoryNames(categoryIds);
+                adminVO.setCategoryName(categoryNames); //三级分类字段，拼接字段
+            }
+
+            adminVO.setChapterName(cataMap.get(record.getChapterId()));
+            adminVO.setSectionName(cataMap.get(record.getSectionId()));
+
+
+            voList.add(adminVO);
+
+        }
+        return PageDTO.of(questionPage, voList);
+
+
+
+
+
+
     }
 
 }
