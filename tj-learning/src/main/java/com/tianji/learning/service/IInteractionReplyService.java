@@ -1,5 +1,6 @@
 package com.tianji.learning.service;
 
+import com.tianji.api.dto.message.LikedTimesDTO;
 import com.tianji.common.domain.dto.PageDTO;
 import com.tianji.learning.domain.dto.ReplyDTO;
 import com.tianji.learning.domain.po.InteractionReply;

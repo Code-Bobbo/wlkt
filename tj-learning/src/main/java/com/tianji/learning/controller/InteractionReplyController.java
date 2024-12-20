@@ -9,6 +9,7 @@ import com.tianji.learning.service.IInteractionReplyService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -27,7 +28,7 @@ public class InteractionReplyController {
     private final IInteractionReplyService replyService;
     @PostMapping("")
     @ApiOperation("新增互动提问的回答或评论")
-    public void saveReply(@RequestBody ReplyDTO reply){
+    public void saveReply(@RequestBody @Validated ReplyDTO reply){
         replyService.saveReply(reply);
     }
     @GetMapping("page")
