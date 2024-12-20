@@ -16,6 +16,9 @@ import org.springframework.amqp.rabbit.annotation.QueueBinding;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import static com.tianji.common.constants.MqConstants.Exchange.LIKE_RECORD_EXCHANGE;
 import static com.tianji.common.constants.MqConstants.Key.QA_LIKED_TIMES_KEY;
 
@@ -30,20 +33,16 @@ public class LikeRecordListener {
             exchange = @Exchange(name = LIKE_RECORD_EXCHANGE, type = ExchangeTypes.TOPIC),
             key = QA_LIKED_TIMES_KEY
     ))
-    public void onMsg(LikedTimesDTO dto){
-        log.info("LikeRecordListener接收到了消息：{}",dto);
-        //1. 校验
-        if(dto.getLikedTimes() == null || dto.getBizId() == null){
-            //如果校验不通过，不要抛异常。，直接return 不管就行。
-            // 如果抛异常，会重试，重试次数达到上限，还是抛异常，就直接丢弃消息。
-            return;
+    public void onMsg(List<LikedTimesDTO> dtoList){
+        log.info("LikeRecordListener接收到了消息：{}",dtoList);
+        List<InteractionReply> interactionReplyList =new ArrayList<>();
+        for (LikedTimesDTO likedTimesDTO : dtoList) {
+            InteractionReply interactionReply = new InteractionReply();
+            interactionReply.setId(likedTimesDTO.getBizId());
+            interactionReply.setLikedTimes(likedTimesDTO.getLikedTimes());
+            interactionReplyList.add(interactionReply);
         }
-        //2. 调用service
-        InteractionReply interactionReply = replyService.getById(dto.getBizId());
-        if (interactionReply == null)
-            return;
-        interactionReply.setLikedTimes(dto.getLikedTimes());
-        replyService.updateById(interactionReply);
+        replyService.updateBatchById(interactionReplyList);
     }
 
 }
