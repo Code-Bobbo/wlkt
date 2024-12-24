@@ -100,7 +100,7 @@ public class PointsBoardServiceImpl extends ServiceImpl<PointsBoardMapper, Point
     }
 
     //查询当前赛季排行榜信息列表
-    private List<PointsBoard> queryPointsBoardNowList(String key, @Min(value = 1, message = "页码不能小于1") Integer pageNo, @Min(value = 1, message = "每页查询数量不能小于1") Integer pageSize) {
+    public List<PointsBoard> queryPointsBoardNowList(String key, @Min(value = 1, message = "页码不能小于1") Integer pageNo, @Min(value = 1, message = "每页查询数量不能小于1") Integer pageSize) {
         Set<ZSetOperations.TypedTuple<String>> typedTuples = stringRedisTemplate.opsForZSet().reverseRangeWithScores(key, (pageNo - 1) * pageSize, pageNo * pageSize - 1);
         if(CollUtils.isEmpty(typedTuples)){
             return CollUtils.emptyList();
