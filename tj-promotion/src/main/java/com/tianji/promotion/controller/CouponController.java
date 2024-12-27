@@ -6,6 +6,7 @@ import com.tianji.promotion.domain.dto.CouponFormDTO;
 import com.tianji.promotion.domain.dto.CouponIssueFormDTO;
 import com.tianji.promotion.domain.query.CouponQuery;
 import com.tianji.promotion.domain.vo.CouponPageVO;
+import com.tianji.promotion.domain.vo.CouponVO;
 import com.tianji.promotion.service.ICouponService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -14,6 +15,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
+import java.util.List;
 
 /**
  * <p>
@@ -43,6 +45,11 @@ private final ICouponService couponService;
     @PutMapping("/{id}/issue")
     public void beginIssue(@PathVariable Long id,@RequestBody @Validated CouponIssueFormDTO dto) {
         couponService.beginIssue(dto);
+    }
+    @ApiOperation("查询发放中的优惠券列表")
+    @GetMapping("/list")
+    public List<CouponVO> queryIssuingCoupons(){
+        return couponService.queryIssuingCoupons();
     }
 
 
