@@ -54,18 +54,20 @@ public class UserCouponServiceImpl extends ServiceImpl<UserCouponMapper, UserCou
         Long userId = UserContext.getUser();
         // 4.校验每人限领数量
         // 4.1.统计当前用户对当前优惠券的已经领取的数量
-        Integer count = lambdaQuery()
-                .eq(UserCoupon::getUserId, userId)
-                .eq(UserCoupon::getCouponId, couponId)
-                .count();
-        // 4.2.校验限领数量
-        if(count != null && count >= coupon.getUserLimit()){
-            throw new BadRequestException("超出领取数量");
+        synchronized (userId.toString().intern()) {
+            Integer count = lambdaQuery()
+                    .eq(UserCoupon::getUserId, userId)
+                    .eq(UserCoupon::getCouponId, couponId)
+                    .count();
+            // 4.2.校验限领数量
+            if(count != null && count >= coupon.getUserLimit()){
+                throw new BadRequestException("超出领取数量");
+            }
+            // 5.更新优惠券的已经发放的数量 + 1
+            couponMapper.incrIssueNum(coupon.getId());
+            // 6.新增一个用户券
+            saveUserCoupon(coupon, userId);
         }
-        // 5.更新优惠券的已经发放的数量 + 1
-        couponMapper.incrIssueNum(coupon.getId());
-        // 6.新增一个用户券
-        saveUserCoupon(coupon, userId);
     }
 
     @Override

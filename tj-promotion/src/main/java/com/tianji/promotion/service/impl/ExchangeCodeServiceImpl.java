@@ -11,6 +11,7 @@ import org.springframework.data.redis.core.BoundValueOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,6 +32,7 @@ import static com.tianji.promotion.constants.PromotionConstants.COUPON_CODE_SERI
 public class ExchangeCodeServiceImpl extends ServiceImpl<ExchangeCodeMapper, ExchangeCode> implements IExchangeCodeService {
     private final StringRedisTemplate redisTemplate;
     @Override
+    @Transactional
     @Async("generateExchangeCodeExecutor")
     public void asyncGenerateCode(Coupon coupon) {
         String name = Thread.currentThread().getName();

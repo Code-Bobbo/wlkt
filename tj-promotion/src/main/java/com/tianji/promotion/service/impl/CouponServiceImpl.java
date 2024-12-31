@@ -97,6 +97,7 @@ private final IUserCouponService userCouponService;
     }
 
     @Override
+    @Transactional
     public void beginIssue(CouponIssueFormDTO dto) {
 // 1.查询优惠券
         Coupon coupon = getById(dto.getId());

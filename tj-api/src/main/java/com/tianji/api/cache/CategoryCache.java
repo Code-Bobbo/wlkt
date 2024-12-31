@@ -29,6 +29,13 @@ public class CategoryCache {
             // 2.转换数据
             return list.stream().collect(Collectors.toMap(CategoryBasicDTO::getId, Function.identity()));
         });
+//        List<CategoryBasicDTO> list = categoryClient.getAllOfOneLevel();
+//        if (list == null || list.isEmpty()) {
+//                return CollUtils.emptyMap();
+//            }
+//            // 2.转换数据
+//            return list.stream().collect(Collectors.toMap(CategoryBasicDTO::getId, Function.identity()));
+
     }
 
     public String getCategoryNames(List<Long> ids) {
