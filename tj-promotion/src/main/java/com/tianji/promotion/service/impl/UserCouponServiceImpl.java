@@ -7,13 +7,17 @@ import com.tianji.promotion.domain.po.Coupon;
 import com.tianji.promotion.domain.po.ExchangeCode;
 import com.tianji.promotion.domain.po.UserCoupon;
 import com.tianji.promotion.enums.ExchangeCodeStatus;
+import com.tianji.promotion.enums.MyLockType;
 import com.tianji.promotion.mapper.CouponMapper;
 import com.tianji.promotion.mapper.UserCouponMapper;
 import com.tianji.promotion.service.IExchangeCodeService;
 import com.tianji.promotion.service.IUserCouponService;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.tianji.promotion.utils.CodeUtil;
+import com.tianji.promotion.utils.MyLock;
+import com.tianji.promotion.utils.MyLockStrategy;
 import lombok.RequiredArgsConstructor;
+import org.springframework.aop.framework.AopContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,7 +39,7 @@ public class UserCouponServiceImpl extends ServiceImpl<UserCouponMapper, UserCou
     private final IExchangeCodeService codeService;
 
     @Override
-    @Transactional
+//    @Transactional
     public void receiveCoupon(Long couponId) {
         // 1.查询优惠券
         Coupon coupon = couponMapper.selectById(couponId);
@@ -54,7 +58,17 @@ public class UserCouponServiceImpl extends ServiceImpl<UserCouponMapper, UserCou
         Long userId = UserContext.getUser();
         // 4.校验每人限领数量
         // 4.1.统计当前用户对当前优惠券的已经领取的数量
-        synchronized (userId.toString().intern()) {
+//        synchronized (userId.toString().intern()){
+            //从aop的上下文中获取当前类的代理方法
+            IUserCouponService userCouponServiceProxy= (IUserCouponService) AopContext.currentProxy();
+//        extracted(couponId, userId, coupon); // 这种写法是调用元对象的方法
+            userCouponServiceProxy.extracted(couponId, userId, coupon);// 这种写法是调用代理对象的方法
+//        }
+    }
+@Transactional
+@MyLock(name = "lock:coupon",lock_type = MyLockType.RE_ENTRANT_LOCK,strategy = MyLockStrategy.FAIL_FAST)
+    public void extracted(Long couponId, Long userId, Coupon coupon) {
+//        synchronized (userId.toString().intern()) {
             Integer count = lambdaQuery()
                     .eq(UserCoupon::getUserId, userId)
                     .eq(UserCoupon::getCouponId, couponId)
@@ -67,7 +81,15 @@ public class UserCouponServiceImpl extends ServiceImpl<UserCouponMapper, UserCou
             couponMapper.incrIssueNum(coupon.getId());
             // 6.新增一个用户券
             saveUserCoupon(coupon, userId);
-        }
+//            if (coupon.getId() != null) {
+//                // 兑换码
+//                codeService.lambdaUpdate()
+//                        .set(ExchangeCode::getUserId, userId)
+//                        .set(ExchangeCode::getStatus, ExchangeCodeStatus.USED)
+//                        .eq(ExchangeCode::getId, couponId)
+//                        .update();
+//            }
+//        }
     }
 
     @Override
